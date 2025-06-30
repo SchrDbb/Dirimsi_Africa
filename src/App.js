@@ -194,9 +194,9 @@ When responding, ensure you:
         ];
 
         const payload = { contents };
-        // The apiKey for fetch calls is automatically provided by the Canvas environment when set to an empty string.
-        // This ensures compatibility with the Canvas runtime and avoids linting errors like '__api_key__ is not defined'.
-        const apiKey = ""; // Set apiKey to an empty string for Canvas automatic injection.
+        // Set apiKey to an empty string. The Canvas runtime will automatically provide the API key
+        // for fetch calls to Google APIs when apiKey is an empty string.
+        const apiKey = "";
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
         try {
