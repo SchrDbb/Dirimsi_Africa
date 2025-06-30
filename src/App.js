@@ -1,6 +1,8 @@
+/* global __api_key__ */ // This line tells ESLint that __api_key__ is a known global variable in some environments
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Volume2, VolumeX, Loader, Info, Lightbulb, ScrollText, Utensils, Handshake } from 'lucide-react';
-import * as Tone from 'tone'; // Corrected import statement for Tone.js
+import * as Tone from 'tone'; 
 
 // --- SVG Background Pattern (Improved Color and Opacity for Deeper Feel) ---
 const SvgBackground = () => (
@@ -161,8 +163,16 @@ When responding, ensure you:
 
         const payload = { contents };
         
-        // Use an empty string for the API key as per instructions, allowing Canvas to inject it
-        const apiKey = ""; 
+        // Corrected API key handling to prioritize Canvas global, then React environment variable
+        // This addresses the 'no-undef' error by conditionally accessing __api_key__
+        let apiKey = '';
+        if (typeof __api_key__ !== 'undefined' && __api_key__ !== null && __api_key__ !== '') {
+            apiKey = __api_key__; // Use Canvas provided key if available and not empty
+        } else if (typeof process !== 'undefined' && process.env.REACT_APP_GEMINI_API_KEY) {
+            apiKey = process.env.REACT_APP_GEMINI_API_KEY; // Otherwise, use create-react-app env var
+        }
+        // If neither is found, apiKey remains an empty string, leading to the 403.
+        // This is the desired behavior for a missing key.
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
