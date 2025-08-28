@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Volume2, VolumeX, Loader, Info, Lightbulb, ScrollText, Utensils, Handshake } from 'lucide-react';
-import * => Tone from 'tone';
+import * as Tone from 'tone';
 
 // --- SVG Background Pattern (Improved Color and Opacity for Deeper Feel) ---
 const SvgBackground = () => (
@@ -38,12 +38,43 @@ export default function App() {
 
     // --- HOOKS ---
     useEffect(() => {
-        setMessages([
-            {
+        // Initial AI welcome message including both domains and new proactive features
+        const initialAiMessage = {
+            role: 'model',
+            content: "Greetings! I am DirimSi AI, your dedicated guide to the rich tapestry of African cultures and profound medical and health science concepts. Feel free to ask me about history, art, music, spiritual beliefs, traditional customs, human anatomy, diseases, treatments, or any other topic within my expertise.\n\nI will also check in with you weekly to see how you're doing and offer a fresh discussion topic on either African culture or health sciences. What can I assist you with today?"
+        };
+
+        // Load timestamps from localStorage
+        const lastWeeklyGreetingTimestamp = localStorage.getItem('lastWeeklyGreetingTimestamp');
+        const lastDailyDiscussionOfferDate = localStorage.getItem('lastDailyDiscussionOfferDate');
+        const now = new Date();
+        const oneWeek = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+
+        let proactiveMessages = [initialAiMessage];
+
+        // Check for weekly greeting
+        if (!lastWeeklyGreetingTimestamp || (now.getTime() - new Date(parseInt(lastWeeklyGreetingTimestamp)).getTime()) > oneWeek) {
+            proactiveMessages.push({
                 role: 'model',
-                content: "Greetings! I am DirimSi AI. I am here to share the vast and beautiful tapestry of African cultures. Ask me about history, art, music, spirituality, or any other African traditional concept you wish to explore. You can also get a ✨ Cultural Insight, ✨ Proverb's Wisdom, ✨ African Dish Recipe, or ✨ African Name Origin by clicking the buttons below!"
-            }
-        ]);
+                content: "As your DirimSi AI, I care about your experience. How have you been feeling this week? I am here to facilitate your learning and exploration across African cultures and medical sciences."
+            });
+            localStorage.setItem('lastWeeklyGreetingTimestamp', now.getTime().toString());
+            // Reset daily offer for a fresh week if a new weekly greeting is given
+            localStorage.removeItem('lastDailyDiscussionOfferDate'); 
+        }
+
+        // Check for daily discussion offer
+        const todayDate = now.toDateString();
+        if (!lastDailyDiscussionOfferDate || lastDailyDiscussionOfferDate !== todayDate) {
+            proactiveMessages.push({
+                role: 'model',
+                content: "Would you like a new daily discussion today on a fascinating aspect of African culture or an intriguing health and medical science concept? Just let me know your preference!"
+            });
+            localStorage.setItem('lastDailyDiscussionOfferDate', todayDate);
+        }
+
+        setMessages(proactiveMessages);
+
 
         const synth = new Tone.PluckSynth({
             attackNoise: 0.8,
@@ -79,11 +110,12 @@ export default function App() {
                 reverb.dispose();
             }
         };
-    }, []);
+    }, []); // Empty dependency array means this runs once on mount
 
     useEffect(() => {
+        // Scroll to the latest message
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+    }, [messages]); // Scrolls whenever messages change
 
     // --- CORE FUNCTIONS ---
     const toggleMusic = async () => {
