@@ -41,7 +41,7 @@ export default function App() {
         // Initial AI welcome message including both domains and new proactive features
         const initialAiMessage = {
             role: 'model',
-            content: "Greetings! I am DirimSi AI, your dedicated guide to the rich tapestry of African cultures and traditions, and profound medical and health science concepts. Feel free to ask me about history, art, music, spiritual beliefs, traditional customs, human anatomy, diseases, treatments, or any other topic within my expertise.\n\nI will also check in with you weekly to see how you're doing and offer a fresh discussion topic on either African culture or health sciences. What can I assist you with today?"
+            content: "Greetings! I am DirimSi AI, your guide to African cultures & traditions, and medical & health science. Ask me anything! I'll also check in weekly and offer daily discussions. What can I assist you with today?"
         };
 
         // Load timestamps from localStorage
