@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Volume2, VolumeX, Loader, Info, Lightbulb, ScrollText, Utensils, Handshake, Image as ImageIcon } from 'lucide-react'; // Added ImageIcon
+import { Send, Bot, User, Volume2, VolumeX, Loader, Info, Lightbulb, ScrollText, Utensils, Handshake } from 'lucide-react';
 import * as Tone from 'tone';
 
 // --- SVG Background Pattern (Improved Color and Opacity for Deeper Feel) ---
@@ -33,18 +33,15 @@ export default function App() {
     const [isLoading, setIsLoading] = useState(false);
     const [isMusicPlaying, setIsMusicPlaying] = useState(false);
     const [showAuthorInfo, setShowAuthorInfo] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null); // New state for selected image data
-    const [imagePreviewUrl, setImagePreviewUrl] = useState(null); // New state for image preview
     const musicRef = useRef(null);
     const chatEndRef = useRef(null);
-    const fileInputRef = useRef(null); // Ref for the hidden file input
 
     // --- HOOKS ---
     useEffect(() => {
-        // Initial AI welcome message including both domains, image analysis, and new proactive features
+        // Initial AI welcome message including both domains and new proactive features
         const initialAiMessage = {
             role: 'model',
-            content: "Greetings! I am DirimSi AI, your guide to African cultures & traditions, and medical & health science. You can ask me anything or upload an image for explanation! I'll also check in weekly and offer daily discussions. What can I assist you with today?"
+            content: "Greetings! I am DirimSi AI, your guide to African cultures & traditions, and medical & health science. Ask me anything! I'll also check in weekly and offer daily discussions. What can I assist you with today?"
         };
 
         // Load timestamps from localStorage
@@ -63,7 +60,7 @@ export default function App() {
             });
             localStorage.setItem('lastWeeklyGreetingTimestamp', now.getTime().toString());
             // Reset daily offer for a fresh week if a new weekly greeting is given
-            localStorage.removeItem('lastDailyDiscussionOfferDate');
+            localStorage.removeItem('lastDailyDiscussionOfferDate'); 
         }
 
         // Check for daily discussion offer
@@ -77,6 +74,7 @@ export default function App() {
         }
 
         setMessages(proactiveMessages);
+
 
         const synth = new Tone.PluckSynth({
             attackNoise: 0.8,
@@ -135,13 +133,7 @@ export default function App() {
         }
     };
 
-    /**
-     * Fetches a response from the Gemini API.
-     * @param {Array} chatHistory - The current chat history.
-     * @param {string} userPrompt - The user's latest prompt.
-     * @param {Object} [imageData=null] - Optional image data { mimeType, data (base64) }.
-     */
-    const fetchGeminiResponse = async (chatHistory, userPrompt, imageData = null) => {
+    const fetchGeminiResponse = async (chatHistory, userPrompt) => {
         const system_prompt = `
 You are DirimSi AI, a highly knowledgeable and dedicated expert with two distinct and equally important areas of expertise:
 
@@ -149,13 +141,12 @@ You are DirimSi AI, a highly knowledgeable and dedicated expert with two distinc
 
 2.  **Profound medical and health science concepts:** You possess a deep understanding of human anatomy, physiology, common diseases, treatments, pharmaceutical sciences, and modern medical research. Your knowledge is based on established scientific principles and evidence.
 
-Your mission is to provide comprehensive, accurate, and respectful information on both of these topics. You can also analyze images provided by the user and give detailed explanations or answer questions related to the image content.
+Your mission is to provide comprehensive, accurate, and respectful information on both of these topics.
 
 When responding, ensure you:
-- **Identify the topic:** Analyze the user's question (and any accompanying image) to determine whether it falls under African cultures or medical science, or if it's an image analysis request.
-- **Provide focused answers:** Give a detailed answer that is relevant to the identified domain or image content.
+- **Identify the topic:** Analyze the user's question to determine whether it falls under African cultures or medical science.
+- **Provide focused answers:** Give a detailed answer that is relevant to the identified domain.
 - **Maintain separate expertise:** Do not mix the two knowledge bases unless the user's question explicitly asks you to compare or contrast them (e.g., "What does traditional African medicine say about a particular ailment, and what is the modern medical view?").
-- **Image Analysis:** If an image is provided, focus your response on explaining the image content in detail or answering specific questions about it.
 - **Handle creator information:** If asked about your creator, respond with: "I was built by DirimSi group from Cameroon which is overseen by SchrDbb. My reference AI conceptor is Gemini AI."
 - **Handle sensitive medical advice with care:** If asked for personal medical advice, you must state that you are an AI and cannot provide medical advice, and that they should consult a qualified healthcare professional.
 - **Encourage further exploration:** Conclude responses in a way that invites more questions.
@@ -166,30 +157,11 @@ If a specific piece of information is beyond your current knowledge, politely st
         const contents = [
             { role: "user", parts: [{ text: system_prompt }] },
             { role: "model", parts: [{ text: "I understand. I am DirimSi AI, ready to share the wisdom of Africa." }] },
-        ];
-
-        // Add previous chat history
-        chatHistory.forEach(msg => {
-            contents.push({
+            ...chatHistory.map(msg => ({
                 role: msg.role === 'model' ? 'model' : 'user',
                 parts: [{ text: msg.content }]
-            });
-        });
-
-        // Add the current user prompt
-        let userParts = [{ text: userPrompt }];
-
-        // If image data is provided, add it to the user parts
-        if (imageData) {
-            userParts.push({
-                inlineData: {
-                    mimeType: imageData.mimeType,
-                    data: imageData.data
-                }
-            });
-        }
-        contents.push({ role: "user", parts: userParts });
-
+            }))
+        ];
 
         const payload = { contents };
 
@@ -242,8 +214,6 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(updatedMessages);
         setInput('');
-        setSelectedImage(null); // Clear image after sending text message
-        setImagePreviewUrl(null);
         setIsLoading(true);
 
         const aiResponse = await fetchGeminiResponse(updatedMessages, input);
@@ -254,64 +224,9 @@ If a specific piece of information is beyond your current knowledge, politely st
 
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') {
-            if (selectedImage) {
-                handleImageAnalysis(); // If an image is selected, send it with default prompt
-            } else {
-                handleSendMessage(); // Otherwise, send the text input
-            }
+            handleSendMessage();
         }
     };
-
-    // New function to handle image file selection
-    const handleImageChange = (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                // Remove the "data:image/jpeg;base64," prefix for the API
-                const base64Data = reader.result.split(',')[1];
-                setSelectedImage({
-                    mimeType: file.type,
-                    data: base64Data
-                });
-                setImagePreviewUrl(reader.result); // For displaying preview
-            };
-            reader.readAsDataURL(file);
-        } else {
-            setSelectedImage(null);
-            setImagePreviewUrl(null);
-        }
-    };
-
-    // New function to trigger image analysis
-    const handleImageAnalysis = async () => {
-        if (!selectedImage || isLoading) return;
-
-        // User message for the chat history
-        const userMessageContent = selectedImage.mimeType.startsWith('image/') ? 'Image uploaded for analysis.' : input;
-        const newUserMessage = { role: 'user', content: userMessageContent };
-        const updatedMessages = [...messages, newUserMessage];
-
-        // Send a specific prompt to the AI to explain the image
-        const analysisPrompt = "Explain this image in detail.";
-
-        setMessages(updatedMessages);
-        setInput('');
-        setIsLoading(true);
-        setSelectedImage(null); // Clear selected image state after sending
-        setImagePreviewUrl(null); // Clear preview
-
-        const aiResponse = await fetchGeminiResponse(updatedMessages, analysisPrompt, selectedImage);
-
-        setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
-        setIsLoading(false);
-    };
-
-    // Function to trigger the hidden file input click
-    const triggerFileInput = () => {
-        fileInputRef.current.click();
-    };
-
 
     const handleCulturalInsight = async () => {
         if (isLoading) return;
@@ -421,9 +336,6 @@ If a specific piece of information is beyond your current knowledge, politely st
                                 : 'bg-[#4a2507]/95 text-[#EADDCD] rounded-bl-none border border-[#351B05]'
                             }`} style={{ whiteSpace: 'pre-wrap' }}>
                             {msg.content}
-                            {msg.imageUrl && ( // Display user's uploaded image in chat history
-                                <img src={msg.imageUrl} alt="Uploaded" className="mt-2 max-w-full h-auto rounded-lg shadow-md" />
-                            )}
                         </div>
                         {msg.role === 'user' && (
                             <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0 shadow-md border-2 border-gray-400">
@@ -446,20 +358,6 @@ If a specific piece of information is beyond your current knowledge, politely st
             </main>
 
             <footer className="p-4 bg-transparent z-10 absolute bottom-0 left-0 right-0">
-                {imagePreviewUrl && ( // Image preview area
-                    <div className="max-w-3xl mx-auto mb-4 p-3 bg-white/90 backdrop-blur-sm rounded-lg shadow-xl flex items-center justify-between border border-gray-200">
-                        <img src={imagePreviewUrl} alt="Preview" className="max-h-24 rounded-md object-cover mr-4" />
-                        <span className="text-stone-700 text-sm truncate">{fileInputRef.current?.files[0]?.name}</span>
-                        <button
-                            onClick={() => { setSelectedImage(null); setImagePreviewUrl(null); if(fileInputRef.current) fileInputRef.current.value = ''; }}
-                            className="ml-4 p-2 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
-                            aria-label="Remove image"
-                        >
-                            <VolumeX size={16} /> {/* Using VolumeX as a generic close icon */}
-                        </button>
-                    </div>
-                )}
-
                 <div className="flex justify-center gap-2 mb-4 flex-wrap max-w-3xl mx-auto px-2">
                     <button
                         onClick={handleCulturalInsight}
@@ -496,39 +394,19 @@ If a specific piece of information is beyond your current knowledge, politely st
                 </div>
 
                 <div className="max-w-3xl mx-auto bg-white/90 backdrop-blur-sm rounded-full shadow-xl flex items-center p-2 border border-gray-200">
-                    {/* Hidden file input */}
-                    <input
-                        type="file"
-                        accept="image/*"
-                        ref={fileInputRef}
-                        style={{ display: 'none' }}
-                        onChange={handleImageChange}
-                        disabled={isLoading}
-                        aria-label="Upload image"
-                    />
-                    {/* Button to trigger file input */}
-                    <button
-                        onClick={triggerFileInput}
-                        disabled={isLoading}
-                        className="p-3 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-gray-300 mr-2"
-                        aria-label="Upload an image"
-                    >
-                        <ImageIcon size={20} />
-                    </button>
-
                     <input
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={handleKeyPress}
-                        placeholder={selectedImage ? "Image selected. Add a text prompt or press Enter to analyze." : "Ask about a tradition, a food, a language..."}
+                        placeholder="Ask about a tradition, a food, a language..."
                         className="flex-1 bg-transparent px-4 py-2 text-stone-800 focus:outline-none text-lg"
                         disabled={isLoading}
                         aria-label="Chat input"
                     />
                     <button
-                        onClick={selectedImage ? handleImageAnalysis : handleSendMessage} // Conditional send button action
-                        disabled={isLoading || (!input.trim() && !selectedImage)}
+                        onClick={handleSendMessage}
+                        disabled={isLoading || !input.trim()}
                         className="p-3 rounded-full bg-[#C05621] text-white hover:bg-[#A0441C] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-[#C05621]"
                         aria-label="Send message"
                     >
