@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Bot, User, Volume2, VolumeX, Loader, Info, Lightbulb, ScrollText, Utensils, Handshake } from 'lucide-react';
-import * as Tone from 'tone';
+import * => Tone from 'tone';
 
 // --- SVG Background Pattern (Improved Color and Opacity for Deeper Feel) ---
 const SvgBackground = () => (
