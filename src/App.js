@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Volume2, VolumeX, Loader, Info, Lightbulb, ScrollText, Utensils, Handshake, Image as ImageIcon } from 'lucide-react'; // Added ImageIcon
+import { Send, Bot, User, Volume2, VolumeX, Loader, Info, Lightbulb, ScrollText, Utensils, Handshake, Image as ImageIcon } from 'lucide-react';
 import * as Tone from 'tone';
 
-// --- SVG Background Pattern (Improved Color and Opacity for Deeper Feel) ---
+// --- SVG Background Pattern (Unchanged) ---
 const SvgBackground = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100" className="fixed inset-0 w-full h-full object-cover -z-10">
         <defs>
@@ -33,15 +33,15 @@ export default function App() {
     const [isLoading, setIsLoading] = useState(false);
     const [isMusicPlaying, setIsMusicPlaying] = useState(false);
     const [showAuthorInfo, setShowAuthorInfo] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null); // New state for selected image data
-    const [imagePreviewUrl, setImagePreviewUrl] = useState(null); // New state for image preview
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
     const musicRef = useRef(null);
     const chatEndRef = useRef(null);
-    const fileInputRef = useRef(null); // Ref for the hidden file input
+    const fileInputRef = useRef(null);
 
     // --- HOOKS ---
     useEffect(() => {
-        // Initial AI welcome message including both domains, image analysis, and new proactive features
+        // Initial AI welcome message
         const initialAiMessage = {
             role: 'model',
             content: "Greetings! I am DirimSi AI, your guide to African cultures & traditions, and medical & health science. You can ask me anything or upload an image for explanation! I'll also check in weekly and offer daily discussions. What can I assist you with today?"
@@ -51,7 +51,7 @@ export default function App() {
         const lastWeeklyGreetingTimestamp = localStorage.getItem('lastWeeklyGreetingTimestamp');
         const lastDailyDiscussionOfferDate = localStorage.getItem('lastDailyDiscussionOfferDate');
         const now = new Date();
-        const oneWeek = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+        const oneWeek = 7 * 24 * 60 * 60 * 1000;
 
         let proactiveMessages = [initialAiMessage];
 
@@ -62,7 +62,6 @@ export default function App() {
                 content: "As your DirimSi AI, I care about your experience. How have you been feeling this week? I am here to facilitate your learning and exploration across African cultures and medical sciences."
             });
             localStorage.setItem('lastWeeklyGreetingTimestamp', now.getTime().toString());
-            // Reset daily offer for a fresh week if a new weekly greeting is given
             localStorage.removeItem('lastDailyDiscussionOfferDate');
         }
 
@@ -112,12 +111,11 @@ export default function App() {
                 reverb.dispose();
             }
         };
-    }, []); // Empty dependency array means this runs once on mount
+    }, []);
 
     useEffect(() => {
-        // Scroll to the latest message
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]); // Scrolls whenever messages change
+    }, [messages]);
 
     // --- CORE FUNCTIONS ---
     const toggleMusic = async () => {
@@ -145,7 +143,7 @@ export default function App() {
         const system_prompt = `
 You are DirimSi AI, a highly knowledgeable and dedicated expert with two distinct and equally important areas of expertise:
 
-1.  **African traditions, history, and culture:** You are a specialist in the vast and diverse tapestry of the African continent. This includes history, languages, customs, clothing, food, spiritual beliefs, music, dance, and arts. You emphasize diversity across regions and and nations, providing in-depth and respectful information.
+1.  **African traditions, history, and culture:** You are a specialist in the vast and diverse tapestry of the African continent. This includes history, languages, customs, clothing, food, spiritual beliefs, music, dance, and arts. You emphasize diversity across regions and nations, providing in-depth and respectful information.
 
 2.  **Profound medical and health science concepts:** You possess a deep understanding of human anatomy, physiology, common diseases, treatments, pharmaceutical sciences, and modern medical research. Your knowledge is based on established scientific principles and evidence.
 
@@ -154,7 +152,7 @@ Your mission is to provide comprehensive, accurate, and respectful information o
 When responding, ensure you:
 - **Identify the topic:** Analyze the user's question (and any accompanying image) to determine whether it falls under African cultures or medical science, or if it's an image analysis request.
 - **Provide focused answers:** Give a detailed answer that is relevant to the identified domain or image content.
-- **Maintain separate expertise:** Do not mix the two knowledge bases unless the user's question explicitly asks you to compare or contrast them (e.g., "What does traditional African medicine say about a particular ailment, and what is the modern medical view?").
+- **Maintain separate expertise:** Do not mix the two knowledge bases unless the user's question explicitly asks you to compare or contrast them.
 - **Image Analysis:** If an image is provided, focus your response on explaining the image content in detail or answering specific questions about it.
 - **Handle creator information:** If asked about your creator, respond with: "I was built by DirimSi group from Cameroon which is overseen by SchrDbb. My reference AI conceptor is Gemini AI."
 - **Handle sensitive medical advice with care:** If asked for personal medical advice, you must state that you are an AI and cannot provide medical advice, and that they should consult a qualified healthcare professional.
@@ -190,13 +188,13 @@ If a specific piece of information is beyond your current knowledge, politely st
         }
         contents.push({ role: "user", parts: userParts });
 
-
         const payload = { contents };
 
-        let apiKey = process.env.REACT_APP_GEMINI_API_KEY || '';
+        // Retrieve API key from environment variables
+        const apiKey = process.env.REACT_APP_GEMINI_API_KEY;
         if (!apiKey) {
-            console.error('REACT_APP_GEMINI_API_KEY is not set. Please configure it in the environment variables.');
-            return "Error: API key is missing. Please contact the site administrator.";
+            console.error('REACT_APP_GEMINI_API_KEY is not set in environment variables.');
+            return "Error: API configuration issue. Please contact the site administrator.";
         }
 
         const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
@@ -211,13 +209,14 @@ If a specific piece of information is beyond your current knowledge, politely st
             if (!response.ok) {
                 const errorData = await response.json();
                 console.error("API response error:", errorData);
-                // Return a user-friendly error message based on the status
-                if (response.status === 429) {
-                    return "I'm experiencing very high demand right now, please try again in a few moments or tomorrow. (Quota limit reached)";
+                if (response.status === 400 && errorData.error?.message.includes('API key')) {
+                    return "Error: The API key is invalid or expired. Please contact the site administrator.";
+                } else if (response.status === 429) {
+                    return "I'm experiencing high demand right now. Please try again later.";
                 } else if (response.status === 403) {
-                    return "I'm sorry, it seems there's an issue with my connection to the knowledge base. Please try again later or contact support.";
+                    return "Access denied. Please contact the site administrator to resolve this issue.";
                 }
-                throw new Error(`API request failed with status ${response.status}: ${errorData.error.message || 'Unknown error'}`);
+                throw new Error(`API request failed with status ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
             }
 
             const result = await response.json();
@@ -225,12 +224,12 @@ If a specific piece of information is beyond your current knowledge, politely st
             if (result.candidates && result.candidates[0]?.content?.parts[0]?.text) {
                 return result.candidates[0].content.parts[0].text;
             } else {
-                console.error("Unexpected API response structure or no content:", result);
-                return "I apologize, but I received an unusual response or no content. Could you please try rephrasing your question?";
+                console.error("Unexpected API response structure:", result);
+                return "I received an unexpected response. Please try rephrasing your question or contact support.";
             }
         } catch (error) {
             console.error("Error fetching Gemini response:", error);
-            return "My apologies, I'm having trouble processing your request right now. Please try again in a moment.";
+            return "I'm having trouble connecting to the knowledge base. Please try again later.";
         }
     };
 
@@ -242,7 +241,7 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(updatedMessages);
         setInput('');
-        setSelectedImage(null); // Clear image after sending text message
+        setSelectedImage(null);
         setImagePreviewUrl(null);
         setIsLoading(true);
 
@@ -255,26 +254,24 @@ If a specific piece of information is beyond your current knowledge, politely st
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') {
             if (selectedImage) {
-                handleImageAnalysis(); // If an image is selected, send it with default prompt
+                handleImageAnalysis();
             } else {
-                handleSendMessage(); // Otherwise, send the text input
+                handleSendMessage();
             }
         }
     };
 
-    // New function to handle image file selection
     const handleImageChange = (event) => {
         const file = event.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                // Remove the "data:image/jpeg;base64," prefix for the API
                 const base64Data = reader.result.split(',')[1];
                 setSelectedImage({
                     mimeType: file.type,
                     data: base64Data
                 });
-                setImagePreviewUrl(reader.result); // For displaying preview
+                setImagePreviewUrl(reader.result);
             };
             reader.readAsDataURL(file);
         } else {
@@ -283,23 +280,20 @@ If a specific piece of information is beyond your current knowledge, politely st
         }
     };
 
-    // New function to trigger image analysis
     const handleImageAnalysis = async () => {
         if (!selectedImage || isLoading) return;
 
-        // User message for the chat history
         const userMessageContent = selectedImage.mimeType.startsWith('image/') ? 'Image uploaded for analysis.' : input;
         const newUserMessage = { role: 'user', content: userMessageContent };
         const updatedMessages = [...messages, newUserMessage];
 
-        // Send a specific prompt to the AI to explain the image
         const analysisPrompt = "Explain this image in detail.";
 
         setMessages(updatedMessages);
         setInput('');
         setIsLoading(true);
-        setSelectedImage(null); // Clear selected image state after sending
-        setImagePreviewUrl(null); // Clear preview
+        setSelectedImage(null);
+        setImagePreviewUrl(null);
 
         const aiResponse = await fetchGeminiResponse(updatedMessages, analysisPrompt, selectedImage);
 
@@ -307,11 +301,9 @@ If a specific piece of information is beyond your current knowledge, politely st
         setIsLoading(false);
     };
 
-    // Function to trigger the hidden file input click
     const triggerFileInput = () => {
         fileInputRef.current.click();
     };
-
 
     const handleCulturalInsight = async () => {
         if (isLoading) return;
@@ -421,7 +413,7 @@ If a specific piece of information is beyond your current knowledge, politely st
                                 : 'bg-[#4a2507]/95 text-[#EADDCD] rounded-bl-none border border-[#351B05]'
                             }`} style={{ whiteSpace: 'pre-wrap' }}>
                             {msg.content}
-                            {msg.imageUrl && ( // Display user's uploaded image in chat history
+                            {msg.imageUrl && (
                                 <img src={msg.imageUrl} alt="Uploaded" className="mt-2 max-w-full h-auto rounded-lg shadow-md" />
                             )}
                         </div>
@@ -446,7 +438,7 @@ If a specific piece of information is beyond your current knowledge, politely st
             </main>
 
             <footer className="p-4 bg-transparent z-10 absolute bottom-0 left-0 right-0">
-                {imagePreviewUrl && ( // Image preview area
+                {imagePreviewUrl && (
                     <div className="max-w-3xl mx-auto mb-4 p-3 bg-white/90 backdrop-blur-sm rounded-lg shadow-xl flex items-center justify-between border border-gray-200">
                         <img src={imagePreviewUrl} alt="Preview" className="max-h-24 rounded-md object-cover mr-4" />
                         <span className="text-stone-700 text-sm truncate">{fileInputRef.current?.files[0]?.name}</span>
@@ -455,7 +447,7 @@ If a specific piece of information is beyond your current knowledge, politely st
                             className="ml-4 p-2 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
                             aria-label="Remove image"
                         >
-                            <VolumeX size={16} /> {/* Using VolumeX as a generic close icon */}
+                            <VolumeX size={16} />
                         </button>
                     </div>
                 )}
@@ -496,7 +488,6 @@ If a specific piece of information is beyond your current knowledge, politely st
                 </div>
 
                 <div className="max-w-3xl mx-auto bg-white/90 backdrop-blur-sm rounded-full shadow-xl flex items-center p-2 border border-gray-200">
-                    {/* Hidden file input */}
                     <input
                         type="file"
                         accept="image/*"
@@ -506,7 +497,6 @@ If a specific piece of information is beyond your current knowledge, politely st
                         disabled={isLoading}
                         aria-label="Upload image"
                     />
-                    {/* Button to trigger file input */}
                     <button
                         onClick={triggerFileInput}
                         disabled={isLoading}
@@ -527,7 +517,7 @@ If a specific piece of information is beyond your current knowledge, politely st
                         aria-label="Chat input"
                     />
                     <button
-                        onClick={selectedImage ? handleImageAnalysis : handleSendMessage} // Conditional send button action
+                        onClick={selectedImage ? handleImageAnalysis : handleSendMessage}
                         disabled={isLoading || (!input.trim() && !selectedImage)}
                         className="p-3 rounded-full bg-[#C05621] text-white hover:bg-[#A0441C] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-[#C05621]"
                         aria-label="Send message"
