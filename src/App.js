@@ -40,7 +40,7 @@ export default function App() {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    TEXTRUNNER: const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+    const [isMusicPlaying, setIsMusicPlaying] = useState(false);
     const [showAuthorInfo, setShowAuthorInfo] = useState(false);
     const [selectedImage, setSelectedImage] = useState(null);
     const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
@@ -160,7 +160,7 @@ When responding, ensure you:
 - **Handle sensitive medical advice with care:** If asked for personal medical advice, you must state that you are an AI and cannot provide medical advice, and that they should consult a qualified healthcare professional.
 - **Encourage further exploration:** Conclude responses in a way that invites more questions.
 
-If a specific piece of information is beyond your current Sony knowledge, politely state that you do not have sufficient information on that particular detail.
+If a specific piece of information is beyond your current knowledge, politely state that you do not have sufficient information on that particular detail.
 `;
 
         const contents = [
@@ -213,7 +213,7 @@ If a specific piece of information is beyond your current Sony knowledge, polite
                     await new Promise(resolve => setTimeout(resolve, parseInt(retryAfter) * 1000 || delay));
                     return fetchGeminiResponse(chatHistory, userPrompt, imageData, retries - 1, delay * 2);
                 } else if (response.status === 429) {
-                    return "I've hit a temporary limit on requests. Please wait a few minutes and try again, or contact support at sciencevideomakers@gmail.com.";
+                    return "I've hit a temporary limit on requests. Please wait until 9:00 AM WAT tomorrow (midnight Pacific Time) or contact support at sciencevideomakers@gmail.com.";
                 } else if (response.status === 403) {
                     return "I'm sorry, it seems there's an issue with my connection to the knowledge base. Please try again later or contact support.";
                 }
