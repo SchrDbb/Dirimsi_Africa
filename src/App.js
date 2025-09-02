@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Volume2, VolumeX, Loader, Info, Lightbulb, ScrollText, Utensils, Handshake, Image as ImageIcon } from 'lucide-react'; // Added ImageIcon
+import { Send, Bot, User, Volume2, VolumeX, Loader, Info, Lightbulb, ScrollText, Utensils, Handshake, Image as ImageIcon } from 'lucide-react';
 import * as Tone from 'tone';
 
-// --- SVG Background Pattern (Improved Color and Opacity for Deeper Feel) ---
+// --- Custom Debounce Function ---
+const debounce = (func, wait) => {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func(...args), wait);
+    };
+};
+
+// --- SVG Background Pattern ---
 const SvgBackground = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 100 100" className="fixed inset-0 w-full h-full object-cover -z-10">
         <defs>
@@ -31,49 +40,47 @@ export default function App() {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [isMusicPlaying, setIsMusicPlaying] = useState(false);
+    TEXTRUNNER: const [isMusicPlaying, setIsMusicPlaying] = useState(false);
     const [showAuthorInfo, setShowAuthorInfo] = useState(false);
-    const [selectedImage, setSelectedImage] = useState(null); // New state for selected image data
-    const [imagePreviewUrl, setImagePreviewUrl] = useState(null); // New state for image preview
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState(null);
     const musicRef = useRef(null);
     const chatEndRef = useRef(null);
-    const fileInputRef = useRef(null); // Ref for the hidden file input
+    const fileInputRef = useRef(null);
 
     // --- HOOKS ---
     useEffect(() => {
-        // Initial AI welcome message including both domains, image analysis, and new proactive features
         const initialAiMessage = {
             role: 'model',
             content: "Greetings! I am DirimSi AI, your guide to African cultures & traditions, and medical & health science. You can ask me anything or upload an image for explanation! I'll also check in weekly and offer daily discussions. What can I assist you with today?"
         };
 
-        // Load timestamps from localStorage
-        const lastWeeklyGreetingTimestamp = localStorage.getItem('lastWeeklyGreetingTimestamp');
-        const lastDailyDiscussionOfferDate = localStorage.getItem('lastDailyDiscussionOfferDate');
-        const now = new Date();
-        const oneWeek = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-
         let proactiveMessages = [initialAiMessage];
 
-        // Check for weekly greeting
-        if (!lastWeeklyGreetingTimestamp || (now.getTime() - new Date(parseInt(lastWeeklyGreetingTimestamp)).getTime()) > oneWeek) {
-            proactiveMessages.push({
-                role: 'model',
-                content: "As your DirimSi AI, I care about your experience. How have you been feeling this week? I am here to facilitate your learning and exploration across African cultures and medical sciences."
-            });
-            localStorage.setItem('lastWeeklyGreetingTimestamp', now.getTime().toString());
-            // Reset daily offer for a fresh week if a new weekly greeting is given
-            localStorage.removeItem('lastDailyDiscussionOfferDate');
-        }
+        // Limit proactive messages in development to reduce API calls
+        if (process.env.NODE_ENV === 'production') {
+            const lastWeeklyGreetingTimestamp = localStorage.getItem('lastWeeklyGreetingTimestamp');
+            const lastDailyDiscussionOfferDate = localStorage.getItem('lastDailyDiscussionOfferDate');
+            const now = new Date();
+            const oneWeek = 7 * 24 * 60 * 60 * 1000;
 
-        // Check for daily discussion offer
-        const todayDate = now.toDateString();
-        if (!lastDailyDiscussionOfferDate || lastDailyDiscussionOfferDate !== todayDate) {
-            proactiveMessages.push({
-                role: 'model',
-                content: "Would you like a new daily discussion today on a fascinating aspect of African culture or an intriguing health and medical science concept? Just let me know your preference!"
-            });
-            localStorage.setItem('lastDailyDiscussionOfferDate', todayDate);
+            if (!lastWeeklyGreetingTimestamp || (now.getTime() - new Date(parseInt(lastWeeklyGreetingTimestamp)).getTime()) > oneWeek) {
+                proactiveMessages.push({
+                    role: 'model',
+                    content: "As your DirimSi AI, I care about your experience. How have you been feeling this week? I am here to facilitate your learning and exploration across African cultures and medical sciences."
+                });
+                localStorage.setItem('lastWeeklyGreetingTimestamp', now.getTime().toString());
+                localStorage.removeItem('lastDailyDiscussionOfferDate');
+            }
+
+            const todayDate = now.toDateString();
+            if (!lastDailyDiscussionOfferDate || lastDailyDiscussionOfferDate !== todayDate) {
+                proactiveMessages.push({
+                    role: 'model',
+                    content: "Would you like a new daily discussion today on a fascinating aspect of African culture or an intriguing health and medical science concept? Just let me know your preference!"
+                });
+                localStorage.setItem('lastDailyDiscussionOfferDate', todayDate);
+            }
         }
 
         setMessages(proactiveMessages);
@@ -112,12 +119,11 @@ export default function App() {
                 reverb.dispose();
             }
         };
-    }, []); // Empty dependency array means this runs once on mount
+    }, []);
 
     useEffect(() => {
-        // Scroll to the latest message
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]); // Scrolls whenever messages change
+    }, [messages]);
 
     // --- CORE FUNCTIONS ---
     const toggleMusic = async () => {
@@ -135,32 +141,26 @@ export default function App() {
         }
     };
 
-    /**
-     * Fetches a response from the Gemini API.
-     * @param {Array} chatHistory - The current chat history.
-     * @param {string} userPrompt - The user's latest prompt.
-     * @param {Object} [imageData=null] - Optional image data { mimeType, data (base64) }.
-     */
-    const fetchGeminiResponse = async (chatHistory, userPrompt, imageData = null) => {
+    const fetchGeminiResponse = async (chatHistory, userPrompt, imageData = null, retries = 3, delay = 1000) => {
         const system_prompt = `
 You are DirimSi AI, a highly knowledgeable and dedicated expert with two distinct and equally important areas of expertise:
 
-1.  **African traditions, history, and culture:** You are a specialist in the vast and diverse tapestry of the African continent. This includes history, languages, customs, clothing, food, spiritual beliefs, music, dance, and arts. You emphasize diversity across regions and and nations, providing in-depth and respectful information.
+1. **African traditions, history, and culture:** You are a specialist in the vast and diverse tapestry of the African continent. This includes history, languages, customs, clothing, food, spiritual beliefs, music, dance, and arts. You emphasize diversity across regions and nations, providing in-depth and respectful information.
 
-2.  **Profound medical and health science concepts:** You possess a deep understanding of human anatomy, physiology, common diseases, treatments, pharmaceutical sciences, and modern medical research. Your knowledge is based on established scientific principles and evidence.
+2. **Profound medical and health science concepts:** You possess a deep understanding of human anatomy, physiology, common diseases, treatments, pharmaceutical sciences, and modern medical research. Your knowledge is based on established scientific principles and evidence.
 
 Your mission is to provide comprehensive, accurate, and respectful information on both of these topics. You can also analyze images provided by the user and give detailed explanations or answer questions related to the image content.
 
 When responding, ensure you:
 - **Identify the topic:** Analyze the user's question (and any accompanying image) to determine whether it falls under African cultures or medical science, or if it's an image analysis request.
 - **Provide focused answers:** Give a detailed answer that is relevant to the identified domain or image content.
-- **Maintain separate expertise:** Do not mix the two knowledge bases unless the user's question explicitly asks you to compare or contrast them (e.g., "What does traditional African medicine say about a particular ailment, and what is the modern medical view?").
+- **Maintain separate expertise:** Do not mix the two knowledge bases unless the user's question explicitly asks you to compare or contrast them.
 - **Image Analysis:** If an image is provided, focus your response on explaining the image content in detail or answering specific questions about it.
 - **Handle creator information:** If asked about your creator, respond with: "I was built by DirimSi group from Cameroon which is overseen by SchrDbb. My reference AI conceptor is Gemini AI."
 - **Handle sensitive medical advice with care:** If asked for personal medical advice, you must state that you are an AI and cannot provide medical advice, and that they should consult a qualified healthcare professional.
 - **Encourage further exploration:** Conclude responses in a way that invites more questions.
 
-If a specific piece of information is beyond your current knowledge, politely state that you do not have sufficient information on that particular detail.
+If a specific piece of information is beyond your current Sony knowledge, politely state that you do not have sufficient information on that particular detail.
 `;
 
         const contents = [
@@ -168,7 +168,6 @@ If a specific piece of information is beyond your current knowledge, politely st
             { role: "model", parts: [{ text: "I understand. I am DirimSi AI, ready to share the wisdom of Africa." }] },
         ];
 
-        // Add previous chat history
         chatHistory.forEach(msg => {
             contents.push({
                 role: msg.role === 'model' ? 'model' : 'user',
@@ -176,10 +175,7 @@ If a specific piece of information is beyond your current knowledge, politely st
             });
         });
 
-        // Add the current user prompt
         let userParts = [{ text: userPrompt }];
-
-        // If image data is provided, add it to the user parts
         if (imageData) {
             userParts.push({
                 inlineData: {
@@ -190,12 +186,11 @@ If a specific piece of information is beyond your current knowledge, politely st
         }
         contents.push({ role: "user", parts: userParts });
 
-
         const payload = { contents };
+        const apiKey = process.env.REACT_APP_GEMINI_API_KEY || '';
 
-        let apiKey = process.env.REACT_APP_GEMINI_API_KEY || '';
         if (!apiKey) {
-            console.error('REACT_APP_GEMINI_API_KEY is not set. Please configure it in the environment variables.');
+            console.error('REACT_APP_GEMINI_API_KEY is not set.');
             return "Error: API key is missing. Please contact the site administrator.";
         }
 
@@ -210,14 +205,19 @@ If a specific piece of information is beyond your current knowledge, politely st
 
             if (!response.ok) {
                 const errorData = await response.json();
-                console.error("API response error:", errorData);
-                // Return a user-friendly error message based on the status
-                if (response.status === 429) {
-                    return "I'm experiencing very high demand right now, please try again in a few moments or tomorrow. (Quota limit reached)";
+                console.error("API response error:", errorData.error?.message || JSON.stringify(errorData));
+
+                if (response.status === 429 && retries > 0) {
+                    const retryAfter = response.headers.get('Retry-After') || delay;
+                    console.warn(`Rate limit hit, retrying after ${retryAfter}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, parseInt(retryAfter) * 1000 || delay));
+                    return fetchGeminiResponse(chatHistory, userPrompt, imageData, retries - 1, delay * 2);
+                } else if (response.status === 429) {
+                    return "I've hit a temporary limit on requests. Please wait a few minutes and try again, or contact support at sciencevideomakers@gmail.com.";
                 } else if (response.status === 403) {
                     return "I'm sorry, it seems there's an issue with my connection to the knowledge base. Please try again later or contact support.";
                 }
-                throw new Error(`API request failed with status ${response.status}: ${errorData.error.message || 'Unknown error'}`);
+                throw new Error(`API request failed with status ${response.status}: ${errorData.error?.message || 'Unknown error'}`);
             }
 
             const result = await response.json();
@@ -234,7 +234,7 @@ If a specific piece of information is beyond your current knowledge, politely st
         }
     };
 
-    const handleSendMessage = async () => {
+    const handleSendMessage = debounce(async () => {
         if (input.trim() === '' || isLoading) return;
 
         const newUserMessage = { role: 'user', content: input };
@@ -242,7 +242,7 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(updatedMessages);
         setInput('');
-        setSelectedImage(null); // Clear image after sending text message
+        setSelectedImage(null);
         setImagePreviewUrl(null);
         setIsLoading(true);
 
@@ -250,31 +250,29 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    };
+    }, 1000);
 
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') {
             if (selectedImage) {
-                handleImageAnalysis(); // If an image is selected, send it with default prompt
+                handleImageAnalysis();
             } else {
-                handleSendMessage(); // Otherwise, send the text input
+                handleSendMessage();
             }
         }
     };
 
-    // New function to handle image file selection
     const handleImageChange = (event) => {
         const file = event.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                // Remove the "data:image/jpeg;base64," prefix for the API
                 const base64Data = reader.result.split(',')[1];
                 setSelectedImage({
                     mimeType: file.type,
                     data: base64Data
                 });
-                setImagePreviewUrl(reader.result); // For displaying preview
+                setImagePreviewUrl(reader.result);
             };
             reader.readAsDataURL(file);
         } else {
@@ -283,37 +281,32 @@ If a specific piece of information is beyond your current knowledge, politely st
         }
     };
 
-    // New function to trigger image analysis
-    const handleImageAnalysis = async () => {
+    const handleImageAnalysis = debounce(async () => {
         if (!selectedImage || isLoading) return;
 
-        // User message for the chat history
         const userMessageContent = selectedImage.mimeType.startsWith('image/') ? 'Image uploaded for analysis.' : input;
         const newUserMessage = { role: 'user', content: userMessageContent };
         const updatedMessages = [...messages, newUserMessage];
 
-        // Send a specific prompt to the AI to explain the image
         const analysisPrompt = "Explain this image in detail.";
 
         setMessages(updatedMessages);
         setInput('');
         setIsLoading(true);
-        setSelectedImage(null); // Clear selected image state after sending
-        setImagePreviewUrl(null); // Clear preview
+        setSelectedImage(null);
+        setImagePreviewUrl(null);
 
         const aiResponse = await fetchGeminiResponse(updatedMessages, analysisPrompt, selectedImage);
 
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    };
+    }, 1000);
 
-    // Function to trigger the hidden file input click
     const triggerFileInput = () => {
         fileInputRef.current.click();
     };
 
-
-    const handleCulturalInsight = async () => {
+    const handleCulturalInsight = debounce(async () => {
         if (isLoading) return;
 
         const userMessage = { role: 'user', content: "Give me a fascinating and unique cultural insight or fact about any African tradition or history." };
@@ -326,9 +319,9 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    };
+    }, 1000);
 
-    const handleProverbWisdom = async () => {
+    const handleProverbWisdom = debounce(async () => {
         if (isLoading) return;
 
         const userMessage = { role: 'user', content: "Tell me an African proverb and explain its meaning." };
@@ -341,9 +334,9 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    };
+    }, 1000);
 
-    const handleAfricanDishRecipe = async () => {
+    const handleAfricanDishRecipe = debounce(async () => {
         if (isLoading) return;
 
         const userMessage = { role: 'user', content: "Suggest a traditional African dish recipe (e.g., Jollof Rice, Egusi Soup, injera) and provide a simplified list of main ingredients and very brief preparation steps. Focus on common, accessible dishes." };
@@ -356,9 +349,9 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    };
+    }, 1000);
 
-    const handleAfricanNameMeaning = async () => {
+    const handleAfricanNameMeaning = debounce(async () => {
         if (isLoading) return;
 
         const userMessage = { role: 'user', content: "Provide an interesting African name (could be male, female, or gender-neutral) and explain its meaning and cultural origin. Make it concise." };
@@ -371,7 +364,7 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    };
+    }, 1000);
 
     // --- RENDER ---
     return (
@@ -421,7 +414,7 @@ If a specific piece of information is beyond your current knowledge, politely st
                                 : 'bg-[#4a2507]/95 text-[#EADDCD] rounded-bl-none border border-[#351B05]'
                             }`} style={{ whiteSpace: 'pre-wrap' }}>
                             {msg.content}
-                            {msg.imageUrl && ( // Display user's uploaded image in chat history
+                            {msg.imageUrl && (
                                 <img src={msg.imageUrl} alt="Uploaded" className="mt-2 max-w-full h-auto rounded-lg shadow-md" />
                             )}
                         </div>
@@ -446,7 +439,7 @@ If a specific piece of information is beyond your current knowledge, politely st
             </main>
 
             <footer className="p-4 bg-transparent z-10 absolute bottom-0 left-0 right-0">
-                {imagePreviewUrl && ( // Image preview area
+                {imagePreviewUrl && (
                     <div className="max-w-3xl mx-auto mb-4 p-3 bg-white/90 backdrop-blur-sm rounded-lg shadow-xl flex items-center justify-between border border-gray-200">
                         <img src={imagePreviewUrl} alt="Preview" className="max-h-24 rounded-md object-cover mr-4" />
                         <span className="text-stone-700 text-sm truncate">{fileInputRef.current?.files[0]?.name}</span>
@@ -455,7 +448,7 @@ If a specific piece of information is beyond your current knowledge, politely st
                             className="ml-4 p-2 rounded-full bg-red-500 text-white hover:bg-red-600 transition-colors"
                             aria-label="Remove image"
                         >
-                            <VolumeX size={16} /> {/* Using VolumeX as a generic close icon */}
+                            <VolumeX size={16} />
                         </button>
                     </div>
                 )}
@@ -496,7 +489,6 @@ If a specific piece of information is beyond your current knowledge, politely st
                 </div>
 
                 <div className="max-w-3xl mx-auto bg-white/90 backdrop-blur-sm rounded-full shadow-xl flex items-center p-2 border border-gray-200">
-                    {/* Hidden file input */}
                     <input
                         type="file"
                         accept="image/*"
@@ -506,7 +498,6 @@ If a specific piece of information is beyond your current knowledge, politely st
                         disabled={isLoading}
                         aria-label="Upload image"
                     />
-                    {/* Button to trigger file input */}
                     <button
                         onClick={triggerFileInput}
                         disabled={isLoading}
@@ -527,7 +518,7 @@ If a specific piece of information is beyond your current knowledge, politely st
                         aria-label="Chat input"
                     />
                     <button
-                        onClick={selectedImage ? handleImageAnalysis : handleSendMessage} // Conditional send button action
+                        onClick={selectedImage ? handleImageAnalysis : handleSendMessage}
                         disabled={isLoading || (!input.trim() && !selectedImage)}
                         className="p-3 rounded-full bg-[#C05621] text-white hover:bg-[#A0441C] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-md focus:outline-none focus:ring-2 focus:ring-[#C05621]"
                         aria-label="Send message"
