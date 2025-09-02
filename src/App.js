@@ -52,18 +52,18 @@ export default function App() {
     useEffect(() => {
         const initialAiMessage = {
             role: 'model',
-            content: "Greetings! I am DirimSi AI, your guide to African cultures & traditions, and medical & health science. You can ask me anything or upload an image for explanation! What can I assist you with today?"
+            content: "Greetings! I am DirimSi AI, your guide to African cultures & traditions, and medical & health science. You can ask me anything or upload an image for explanation! I'll also check in weekly and offer daily discussions. What can I assist you with today?"
         };
-        setMessages([initialAiMessage]);
 
-        // Comment out proactive messages to conserve quota during testing
-        /*
         let proactiveMessages = [initialAiMessage];
+
+        // Limit proactive messages in development to reduce API calls
         if (process.env.NODE_ENV === 'production') {
             const lastWeeklyGreetingTimestamp = localStorage.getItem('lastWeeklyGreetingTimestamp');
             const lastDailyDiscussionOfferDate = localStorage.getItem('lastDailyDiscussionOfferDate');
             const now = new Date();
             const oneWeek = 7 * 24 * 60 * 60 * 1000;
+
             if (!lastWeeklyGreetingTimestamp || (now.getTime() - new Date(parseInt(lastWeeklyGreetingTimestamp)).getTime()) > oneWeek) {
                 proactiveMessages.push({
                     role: 'model',
@@ -72,6 +72,7 @@ export default function App() {
                 localStorage.setItem('lastWeeklyGreetingTimestamp', now.getTime().toString());
                 localStorage.removeItem('lastDailyDiscussionOfferDate');
             }
+
             const todayDate = now.toDateString();
             if (!lastDailyDiscussionOfferDate || lastDailyDiscussionOfferDate !== todayDate) {
                 proactiveMessages.push({
@@ -81,8 +82,8 @@ export default function App() {
                 localStorage.setItem('lastDailyDiscussionOfferDate', todayDate);
             }
         }
+
         setMessages(proactiveMessages);
-        */
 
         const synth = new Tone.PluckSynth({
             attackNoise: 0.8,
@@ -167,9 +168,7 @@ If a specific piece of information is beyond your current knowledge, politely st
             { role: "model", parts: [{ text: "I understand. I am DirimSi AI, ready to share the wisdom of Africa." }] },
         ];
 
-        // Truncate chat history to last 5 messages to reduce payload size
-        const recentHistory = chatHistory.slice(-5);
-        recentHistory.forEach(msg => {
+        chatHistory.forEach(msg => {
             contents.push({
                 role: msg.role === 'model' ? 'model' : 'user',
                 parts: [{ text: msg.content }]
@@ -214,7 +213,7 @@ If a specific piece of information is beyond your current knowledge, politely st
                     await new Promise(resolve => setTimeout(resolve, parseInt(retryAfter) * 1000 || delay));
                     return fetchGeminiResponse(chatHistory, userPrompt, imageData, retries - 1, delay * 2);
                 } else if (response.status === 429) {
-                    return "I've hit a temporary limit on requests. Please wait a few minutes or contact support at sciencevideomakers@gmail.com.";
+                    return "I've hit a temporary limit on requests. Please wait until 9:00 AM WAT tomorrow (midnight Pacific Time) or contact support at sciencevideomakers@gmail.com.";
                 } else if (response.status === 403) {
                     return "I'm sorry, it seems there's an issue with my connection to the knowledge base. Please try again later or contact support.";
                 }
@@ -251,7 +250,7 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    }, 2000); // Increased to 2 seconds
+    }, 1000);
 
     const handleKeyPress = (e) => {
         if (e.key === 'Enter') {
@@ -266,11 +265,6 @@ If a specific piece of information is beyond your current knowledge, politely st
     const handleImageChange = (event) => {
         const file = event.target.files[0];
         if (file) {
-            const maxSize = 1 * 1024 * 1024; // 1MB
-            if (file.size > maxSize) {
-                alert('Image is too large. Please upload an image smaller than 1MB.');
-                return;
-            }
             const reader = new FileReader();
             reader.onloadend = () => {
                 const base64Data = reader.result.split(',')[1];
@@ -306,7 +300,7 @@ If a specific piece of information is beyond your current knowledge, politely st
 
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    }, 2000); // Increased to 2 seconds
+    }, 1000);
 
     const triggerFileInput = () => {
         fileInputRef.current.click();
@@ -321,20 +315,11 @@ If a specific piece of information is beyond your current knowledge, politely st
         setMessages(updatedMessages);
         setIsLoading(true);
 
-        const cacheKey = `culturalInsight_${new Date().toDateString()}`;
-        const cachedResponse = localStorage.getItem(cacheKey);
-        if (cachedResponse) {
-            setMessages(prevMessages => [...prevMessages, { role: 'model', content: cachedResponse }]);
-            setIsLoading(false);
-            return;
-        }
-
         const aiResponse = await fetchGeminiResponse(updatedMessages, "Provide a random, interesting cultural insight or historical fact about Africa. Keep it concise and engaging.");
 
-        localStorage.setItem(cacheKey, aiResponse);
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    }, 2000); // Increased to 2 seconds
+    }, 1000);
 
     const handleProverbWisdom = debounce(async () => {
         if (isLoading) return;
@@ -345,20 +330,11 @@ If a specific piece of information is beyond your current knowledge, politely st
         setMessages(updatedMessages);
         setIsLoading(true);
 
-        const cacheKey = `proverbWisdom_${new Date().toDateString()}`;
-        const cachedResponse = localStorage.getItem(cacheKey);
-        if (cachedResponse) {
-            setMessages(prevMessages => [...prevMessages, { role: 'model', content: cachedResponse }]);
-            setIsLoading(false);
-            return;
-        }
-
         const aiResponse = await fetchGeminiResponse(updatedMessages, "Generate a well-known African proverb and then provide a clear explanation of its meaning and cultural context.");
 
-        localStorage.setItem(cacheKey, aiResponse);
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    }, 2000); // Increased to 2 seconds
+    }, 1000);
 
     const handleAfricanDishRecipe = debounce(async () => {
         if (isLoading) return;
@@ -369,20 +345,11 @@ If a specific piece of information is beyond your current knowledge, politely st
         setMessages(updatedMessages);
         setIsLoading(true);
 
-        const cacheKey = `africanDishRecipe_${new Date().toDateString()}`;
-        const cachedResponse = localStorage.getItem(cacheKey);
-        if (cachedResponse) {
-            setMessages(prevMessages => [...prevMessages, { role: 'model', content: cachedResponse }]);
-            setIsLoading(false);
-            return;
-        }
-
         const aiResponse = await fetchGeminiResponse(updatedMessages, "Suggest a traditional African dish recipe and provide a simplified list of main ingredients and very brief preparation steps.");
 
-        localStorage.setItem(cacheKey, aiResponse);
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    }, 2000); // Increased to 2 seconds
+    }, 1000);
 
     const handleAfricanNameMeaning = debounce(async () => {
         if (isLoading) return;
@@ -393,20 +360,11 @@ If a specific piece of information is beyond your current knowledge, politely st
         setMessages(updatedMessages);
         setIsLoading(true);
 
-        const cacheKey = `africanNameMeaning_${new Date().toDateString()}`;
-        const cachedResponse = localStorage.getItem(cacheKey);
-        if (cachedResponse) {
-            setMessages(prevMessages => [...prevMessages, { role: 'model', content: cachedResponse }]);
-            setIsLoading(false);
-            return;
-        }
-
         const aiResponse = await fetchGeminiResponse(updatedMessages, "Provide an interesting African name (could be male, female, or gender-neutral) and explain its meaning and cultural origin. Make it concise.");
 
-        localStorage.setItem(cacheKey, aiResponse);
         setMessages(prevMessages => [...prevMessages, { role: 'model', content: aiResponse }]);
         setIsLoading(false);
-    }, 2000); // Increased to 2 seconds
+    }, 1000);
 
     // --- RENDER ---
     return (
